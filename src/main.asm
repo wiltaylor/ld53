@@ -1,23 +1,4 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; The NES 2.0 header 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;.segment "HEADER"
-;.org $7FF0
-;.byte $4E,$45,$53,$1A  ; 4 bytes N E S \n
-;.byte $02 ; How many 16KB of prg we will use (=32KB)
-;.byte $01 ; How many 8k of char rom we will use
-;.byte %00000001  ; Vert mirroring and no battery, mapper 0
-;.byte %00001000  ; mapper 0, ines 2.0 header and a regular nes.
-;.byte %00000000  ; mapper 0 and no sub mapper
-;.byte %00010010  ; $02 for prg-rom size and $01 for char rom size.
-;.byte %00000000  ; 0 for prg-ram size
-;.byte %00000000  ; 0 for prg-ram and eeprom size
-;.byte %00000000  ; 0 for chr-ram and eeprom size
-;.byte %00000000  ; NTSC NES timing mode.
-;.byte %00000000  ; 0 for extended system types
-;.byte $01 ; Regular nes controller attached
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; The iNES header (contains total of 16 bytes with flags at $7FF0)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 .segment "HEADER"
@@ -32,39 +13,132 @@
 .byte $00 ; No PRG-RAM
 .byte $00,$00,$00,$00,$00 ; Unused padding to complete 16 bytes of header
 
+.include "consts.inc"
+.include "nes.inc"
+
+.segment "ZEROPAGE"
+textPtr: .res 2
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; PRG-ROM code - located at $8000
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 .segment "CODE"
 .org $8000
-
 RESET:
-    ;; Disable interrupts
-    sei
+    INIT_NES
+    
+    jsr ClearBackGround   
+    jsr loadPalette  
 
-    ;; Set stack pointer
-    cld
-    ldx #$FF
-    txs
+    jsr LoadText
 
-    ;; Clear zero page
-    ldx #0
-    lda #0
-MemClear:
-    sta $0, x ; Clearing memory at offset x
-    dex
-    bne MemClear
+    jsr EnablePPU
 
-;; Endless loop
-loop:
-    jmp loop
+
+
+lda #0
+sta PPU_SCROLL           ; Disable scroll in X
+sta PPU_SCROLL           ; Disable scroll in Y
+
+LoopForever:
+ldy #0
+ldx #0
+lda #0
+    jmp LoopForever          ; Force an infinite execution loop
 
 NMI:
     rti
 
 IRQ:
     rti 
+
+.proc ClearBackGround
+    PPU_SETADDR PPU_NAMETABLE_0
+
+    ldx #0
+    ldy #0
+OuterLoop:
+InnerLoop:
+    lda #$ff
+    sta PPU_DATA
+    inx
+    cpx #32
+    bne InnerLoop
+    iny
+    cpy #30
+    bne OuterLoop
+    rts
+.endproc
+
+.proc EnablePPU
+    ;; Enable PPU Rendering again
+    lda #%10000000
+    sta PPU_CTRL
+    lda #0
+    sta PPU_SCROLL
+    sta PPU_SCROLL
+    lda #%00011110
+    sta PPU_MASK
+    rts
+.endproc
+
+.proc loadPalette
+    ;;Loading pallette into memory
+    PPU_SETADDR $3F00
+    ldy #0
+:    
+    lda PaletteData,y
+    sta PPU_DATA
+    iny
+    cpy #32
+    bne :-
+    rts
+.endproc
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Subroutine to load text in the nametable until it finds a 0-terminator
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+.proc LoadText
+    PPU_SETADDR $21CA
+    ldy #0;
+loop:
+    lda StartMsg,y
+    beq exit
+    cmp #32 ; ascii space
+    beq space
+    SEC
+    SBC #65  ; Subtracting position in ascii table plus numbers
+    sta PPU_DATA
+nextchar:
+    iny
+    jmp loop
+
+space:
+    lda #$ff
+    sta PPU_DATA
+    jmp nextchar
+
+exit:
+    
+    rts                      ; Return from subroutine
+.endproc
+
+PaletteData:
+.byte $0D,$10,$2d,$27, $0D,$21,$11,$27, $0D,$37,$3D,$27, $0D,$0F,$3D,$27 ; Background palette
+.byte $0D,$0F,$2D,$10, $0D,$0F,$20,$27, $0D,$2D,$38,$18, $0D,$0F,$1A,$32 ; Sprite palette
+
+StartMsg:
+    .byte "PRESS START", $00
+
+;; Background Palletts
+;.byte $0d, $10, $2d, $27,  $0d, $21, $11, $27,  $0d, $26, $16, $27,  $0d, $09, $30, $27 
+
+;; Sprite Palletts
+;;todo
+
+.segment "CHARS"
+.incbin "assets/tiles/main.chr"
 
 .segment "VECTORS"
 .word NMI

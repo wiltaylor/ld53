@@ -1,0 +1,8 @@
+{
+  "filename": "sprites",
+  "filepath": "/home/wil/repo/github.com/wiltaylor/ld58/assets/sprites/sprites",
+  "bank": 1,
+  "nametable": "/home/wil/repo/github.com/wiltaylor/ld58/assets/tiles/main.nam",
+  "tileset": "/home/wil/repo/github.com/wiltaylor/ld58/assets/tiles/main.chr",
+  "palettes": "/home/wil/repo/github.com/wiltaylor/ld58/assets/tiles/main.pal"
+}
