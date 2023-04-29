@@ -8,4 +8,4 @@ clean:
     rm *.nes *.o || true
 
 run:
-	fceux hello.nes
+	fceux src/game.nes
