@@ -1,29 +1,14 @@
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; The iNES header (contains total of 16 bytes with flags at $7FF0)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-.segment "HEADER"
-.org $7FF0
-.byte $4E,$45,$53,$1A  ; 4 bytes N E S \n
-.byte $02 ; How many 16KB of prg we will use (=32KB)
-.byte $01 ; How many 8k of char rom we will use
-.byte %00000000  ; Hoz mirroring and no battery, mapper 0
-.byte %00000000  ; mapper 0, playchoicem, iNes 2.0
-.byte $00 ; No PRG-RAM
-.byte $00 ; NTSC Format TV
-.byte $00 ; No PRG-RAM
-.byte $00,$00,$00,$00,$00 ; Unused padding to complete 16 bytes of header
-
-.enum GAME_MODE 
-    START_SCREEN = 0
-    GAME = 1
-    GAME_OVER = 2
-.endenum
-
+.include "header.inc"
+.include "gamemode.inc"
 .include "consts.inc"
 .include "nes.inc"
 
 .segment "ZEROPAGE"
-textPtr: .res 2
+Buttons: .res 1
+PrevButtons:    .res 1
+gameMode: .res 1
+gameModeChanged: .res 1
+videoUpdated: .res 1
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; PRG-ROM code - located at $8000
@@ -31,29 +16,39 @@ textPtr: .res 2
 .segment "CODE"
 
 ; FamiStudio config.
-;FAMISTUDIO_CFG_EXTERNAL       = 1
-;FAMISTUDIO_CFG_DPCM_SUPPORT   = 1
-;FAMISTUDIO_CFG_SFX_SUPPORT    = 1 
-;FAMISTUDIO_CFG_SFX_STREAMS    = 2
-;FAMISTUDIO_CFG_EQUALIZER      = 1
-;FAMISTUDIO_USE_VOLUME_TRACK   = 1
-;FAMISTUDIO_USE_PITCH_TRACK    = 1
-;FAMISTUDIO_USE_SLIDE_NOTES    = 1
-;FAMISTUDIO_USE_VIBRATO        = 1
-;FAMISTUDIO_USE_ARPEGGIO       = 1
-;FAMISTUDIO_CFG_SMOOTH_VIBRATO = 1
-;FAMISTUDIO_USE_RELEASE_NOTES  = 1
-;FAMISTUDIO_DPCM_OFF           = $e000
+FAMISTUDIO_CFG_EXTERNAL       = 1
+FAMISTUDIO_CFG_DPCM_SUPPORT   = 1
+FAMISTUDIO_CFG_SFX_SUPPORT    = 1 
+FAMISTUDIO_CFG_SFX_STREAMS    = 2
+FAMISTUDIO_CFG_EQUALIZER      = 1
+FAMISTUDIO_USE_VOLUME_TRACK   = 0
+FAMISTUDIO_USE_PITCH_TRACK    = 1
+FAMISTUDIO_USE_SLIDE_NOTES    = 1
+FAMISTUDIO_USE_VIBRATO        = 1
+FAMISTUDIO_USE_ARPEGGIO       = 1
+FAMISTUDIO_CFG_SMOOTH_VIBRATO = 1
+FAMISTUDIO_USE_RELEASE_NOTES  = 1
+FAMISTUDIO_DPCM_OFF           = $e000
 
-;.define FAMISTUDIO_CA65_ZP_SEGMENT   ZEROPAGE
-;.define FAMISTUDIO_CA65_RAM_SEGMENT  BSS
-;.define FAMISTUDIO_CA65_CODE_SEGMENT CODE
+.define FAMISTUDIO_CA65_ZP_SEGMENT   ZEROPAGE
+.define FAMISTUDIO_CA65_RAM_SEGMENT  BSS
+.define FAMISTUDIO_CA65_CODE_SEGMENT CODE
 
-;.include "audioengine.inc"
+.include "audioengine.inc"
 
-.org $8000
-RESET:
+RESET: 
     INIT_NES
+
+    setGameMode GAME_MODE::START_SCREEN
+
+    ldx #<IntroMusic
+    ldy #>IntroMusic
+    lda #1 ; NTSC
+
+    jsr famistudio_init
+
+    lda #0
+    jsr famistudio_music_play
     
     jsr ClearBackGround   
     jsr loadPalette  
@@ -66,17 +61,54 @@ lda #0
 sta PPU_SCROLL           ; Disable scroll in X
 sta PPU_SCROLL           ; Disable scroll in Y
 
-LoopForever:
-ldy #0
-ldx #0
-lda #0
-    jmp LoopForever          ; Force an infinite execution loop
+MainLoop:
+    jsr famistudio_update 
+    jsr ReadControllers
 
-NMI:
+    lda Buttons
+    and #BUTTON_START
+    beq :+
+        jsr famistudio_music_stop
+        setGameMode GAME_MODE::GAME_OVER
+:
+
+waitForVBlank:
+    lda videoUpdated
+    beq waitForVBlank
+    lda #0
+    sta videoUpdated
+
+    jmp MainLoop          ; Force an infinite execution loop
+
+NMI:   
+    PUSH_REGS
+
+    lda #1
+    sta videoUpdated
+
+    PULL_REGS
     rti
 
 IRQ:
     rti 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Routine to read controller state and store it inside "Buttons" in RAM
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+.proc ReadControllers
+    lda #1                   ; A = 1
+    sta Buttons              ; Buttons = 1
+    sta JOYPAD1              ; Set Latch=1 to begin 'Input'/collection mode
+    lsr                      ; A = 0
+    sta JOYPAD1              ; Set Latch=0 to begin 'Output' mode
+LoopButtons:
+    lda JOYPAD1              ; This reads a bit from the controller data line and inverts its value,
+                             ; And also sends a signal to the Clock line to shift the bits
+    lsr                      ; We shift-right to place that 1-bit we just read into the Carry flag
+    rol Buttons              ; Rotate bits left, placing the Carry value into the 1st bit of 'Buttons' in RAM
+    bcc LoopButtons          ; Loop until Carry is set (from that initial 1 we loaded inside Buttons)
+    rts
+.endproc
 
 .proc ClearBackGround
     PPU_SETADDR PPU_NAMETABLE_0
@@ -156,6 +188,9 @@ PaletteData:
 
 StartMsg:
     .byte "PRESS START", $00
+
+IntroMusic:
+    .include "song1.s"
 
 .segment "CHARS"
 .incbin "assets/tiles/main.chr"
