@@ -1,7 +1,9 @@
+.segment "ZEROPAGE"
+Buttons: .res 1
+PrevButtons:    .res 1
+
 .segment "CODE"
 .proc ReadControllers
-    ldx #5
-    stx $07
     ;Clear the buttons variable to 1 so it will carry at the end of our loop
     lda #1                   
     sta Buttons

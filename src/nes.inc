@@ -8,7 +8,7 @@
     ;; Set stack pointer to FF
     ldx #$FF
     txs
-
+    
     ;; Clear x to zero and disable Rendering
     inx                      
     stx PPU_CTRL             
@@ -87,4 +87,27 @@ Wait2ndVBlank:
     pla                      ; Restore the old value of X from the stack
     tax
     pla                      ; Pull A from the stack
+.endmacro
+
+.macro SetPointer addr, ptr 
+    ldx #<addr
+    ldy #>addr
+    stx ptr 
+    sty ptr+1
+.endmacro
+
+.macro callsub4 name, p1, p2, p3, p4
+        lda p1 
+        sta r1
+
+        lda p2 
+        sta r2
+
+        lda p3 
+        sta r3
+
+        lda p4 
+        sta r4
+
+    jsr name
 .endmacro

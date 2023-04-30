@@ -13,3 +13,7 @@
     lda #1
     sta gameModeChanged
 .endmacro
+
+.segment "ZEROPAGE"
+gameMode: .res 1
+gameModeChanged: .res 1
