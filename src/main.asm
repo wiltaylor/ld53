@@ -13,6 +13,12 @@
 .byte $00 ; No PRG-RAM
 .byte $00,$00,$00,$00,$00 ; Unused padding to complete 16 bytes of header
 
+.enum GAME_MODE 
+    START_SCREEN = 0
+    GAME = 1
+    GAME_OVER = 2
+.endenum
+
 .include "consts.inc"
 .include "nes.inc"
 
@@ -23,6 +29,28 @@ textPtr: .res 2
 ;; PRG-ROM code - located at $8000
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 .segment "CODE"
+
+; FamiStudio config.
+;FAMISTUDIO_CFG_EXTERNAL       = 1
+;FAMISTUDIO_CFG_DPCM_SUPPORT   = 1
+;FAMISTUDIO_CFG_SFX_SUPPORT    = 1 
+;FAMISTUDIO_CFG_SFX_STREAMS    = 2
+;FAMISTUDIO_CFG_EQUALIZER      = 1
+;FAMISTUDIO_USE_VOLUME_TRACK   = 1
+;FAMISTUDIO_USE_PITCH_TRACK    = 1
+;FAMISTUDIO_USE_SLIDE_NOTES    = 1
+;FAMISTUDIO_USE_VIBRATO        = 1
+;FAMISTUDIO_USE_ARPEGGIO       = 1
+;FAMISTUDIO_CFG_SMOOTH_VIBRATO = 1
+;FAMISTUDIO_USE_RELEASE_NOTES  = 1
+;FAMISTUDIO_DPCM_OFF           = $e000
+
+;.define FAMISTUDIO_CA65_ZP_SEGMENT   ZEROPAGE
+;.define FAMISTUDIO_CA65_RAM_SEGMENT  BSS
+;.define FAMISTUDIO_CA65_CODE_SEGMENT CODE
+
+;.include "audioengine.inc"
+
 .org $8000
 RESET:
     INIT_NES
@@ -33,8 +61,6 @@ RESET:
     jsr LoadText
 
     jsr EnablePPU
-
-
 
 lda #0
 sta PPU_SCROLL           ; Disable scroll in X
@@ -130,12 +156,6 @@ PaletteData:
 
 StartMsg:
     .byte "PRESS START", $00
-
-;; Background Palletts
-;.byte $0f, $10, $2d, $27,  $0f, $21, $11, $27,  $0f $26, $16, $27,  $0f, $09, $30, $27 
-
-;; Sprite Palletts
-;;todo
 
 .segment "CHARS"
 .incbin "assets/tiles/main.chr"
