@@ -125,14 +125,14 @@ exit:
 .endproc
 
 PaletteData:
-.byte $0D,$10,$2d,$27, $0D,$21,$11,$27, $0D,$37,$3D,$27, $0D,$0F,$3D,$27 ; Background palette
-.byte $0D,$0F,$2D,$10, $0D,$0F,$20,$27, $0D,$2D,$38,$18, $0D,$0F,$1A,$32 ; Sprite palette
+.byte $0F,$10,$2d,$27, $0F,$21,$11,$27, $0F,$37,$3D,$27, $0F,$0F,$3D,$27 ; Background palette
+.byte $0F,$0F,$2D,$10, $0F,$0F,$20,$27, $0F,$2D,$38,$18, $0F,$0F,$1A,$32 ; Sprite palette
 
 StartMsg:
     .byte "PRESS START", $00
 
 ;; Background Palletts
-;.byte $0d, $10, $2d, $27,  $0d, $21, $11, $27,  $0d, $26, $16, $27,  $0d, $09, $30, $27 
+;.byte $0f, $10, $2d, $27,  $0f, $21, $11, $27,  $0f $26, $16, $27,  $0f, $09, $30, $27 
 
 ;; Sprite Palletts
 ;;todo
